@@ -1,0 +1,104 @@
+---
+title: "Practical Machine Learning Project"
+author: "Jumadi"
+date: "May 28, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+### Load Library
+```{r}
+library(caret)
+library(rattle)
+```
+
+### Load & Cleansing Data
+```{r}
+train_data <- read.csv('pml-training.csv',header=TRUE)
+test_data <- read.csv('pml-testing.csv',header=TRUE)
+```
+```{r}
+str(train_data)
+```
+
+```{r}
+str(test_data)
+```
+Remove Variable with 80% NA/Blank Value
+```{r}
+index_col_train <- which(colSums(is.na(train_data) |train_data=="")>0.9*dim(train_data)[1]) 
+train_clean <- train_data[,-index_col_train]
+train_clean <- train_clean[,-c(1:7)]
+dim(train_clean)
+```
+
+```{r}
+index_col_train <- which(colSums(is.na(test_data) |test_data=="")>0.9*dim(test_data)[1]) 
+test_clean <- test_data[,-index_col_train]
+test_clean <- test_clean[,-c(1:7)]
+dim(test_clean)
+```
+
+Split data train to train & testing
+
+```{r}
+set.seed(33123)
+inTrain1 <- createDataPartition(train_clean$classe, p=0.8, list=FALSE)
+Train1 <- train_clean[inTrain1,]
+Test1 <- train_clean[-inTrain1,]
+dim(Train1)
+```
+
+
+### Prediction with Decision Trees
+```{r}
+trctrl <- trainControl(method="cv", number = 5)
+model_dt <- train(classe~., data=Train1, method="rpart", trControl=trctrl)
+fancyRpartPlot(model_dt$finalModel)
+```
+
+```{r}
+pred_dt <- predict(model_dt, Test1)
+cmtree <- confusionMatrix(pred_dt, Test1$classe)
+cmtree
+```
+
+from summary above the accuracy of this first model is very low (about 50%)
+
+### Prediction with Random Forest
+
+```{r}
+model_RF <- train(classe~., data=Train1, method="rf", trControl=trctrl, verbose=FALSE)
+print(model_RF)
+```
+
+```{r}
+plot(model_RF,main="Accuracy of Random forest model by number of predictors")
+```
+
+
+```{r}
+pred_rf <- predict(model_RF, Test1)
+cmtree <- confusionMatrix(pred_rf, Test1$classe)
+cmtree
+```
+from summary above the accuracy of this first model is very high (about 99%). so we can use this model to pridict test case data
+
+```{r}
+plot(model_RF$finalModel,main="Model error of Random forest model by number of trees")
+```
+
+### Predict Result with testing data
+
+```{r}
+FinalTestPred <- predict(model_RF,newdata=test_clean)
+FinalTestPred
+```
+
